@@ -286,21 +286,17 @@ export function saveGeoJsonToStorage(collection: FeatureCollection): void {
 /**
  * Creates a brand new map in localStorage.
  */
-export function createNewMap(name = 'Nová trasa'): SavedMapItem {
-  const emptyGeoJson = createEmptyFeatureCollection();
+export function createNewMap(
+  name = 'Nová trasa',
+  geoJson = createEmptyFeatureCollection()
+): SavedMapItem {
   const newMap: SavedMapItem = {
     id: 'map_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     name,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    geoJson: emptyGeoJson,
-    stats: {
-      totalDistanceKm: 0,
-      featureCount: 0,
-      lineCount: 0,
-      polygonCount: 0,
-      markerCount: 0,
-    },
+    geoJson,
+    stats: calculateRouteStats(geoJson),
   };
 
   saveMapItem(newMap);

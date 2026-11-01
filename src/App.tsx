@@ -28,6 +28,7 @@ import {
   deleteMapItem,
   calculateRouteStats,
 } from './utils/geoJsonStorage';
+import { createSharedRouteUrl, parseSharedRouteHash } from './utils/routeSharing';
 import './App.css';
 
 export default function App() {
@@ -86,12 +87,42 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const showNotification = (msg: string) => {
+  const showNotification = useCallback((msg: string) => {
     setNotification(msg);
     setTimeout(() => {
       setNotification((curr) => (curr === msg ? null : curr));
     }, 3500);
-  };
+  }, []);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith('#route=')) return;
+
+    try {
+      const sharedRoute = parseSharedRouteHash(hash);
+      window.history.replaceState(
+        window.history.state,
+        '',
+        `${window.location.pathname}${window.location.search}`
+      );
+
+      setTimeout(() => {
+        const sharedMap = createNewMap(sharedRoute.name, sharedRoute.geoJson);
+        setSavedMaps(getAllSavedMaps());
+        setActiveMapIdState(sharedMap.id);
+        setClearTrigger((prev) => prev + 1);
+        setCurrentGeoJson(sharedRoute.geoJson);
+        setStats(sharedMap.stats);
+        resetHistory(sharedRoute.geoJson);
+
+        setTimeout(() => setImportedGeoJson(sharedRoute.geoJson), 20);
+        showNotification(`Načtena sdílená trasa: ${sharedRoute.name}`);
+      }, 0);
+    } catch (error) {
+      console.error('Failed to load shared route from URL:', error);
+      setTimeout(() => showNotification('Sdílený odkaz na trasu je neplatný nebo poškozený.'), 0);
+    }
+  }, [resetHistory, showNotification]);
 
   // Synchronize GeoJSON changes to active map in localStorage & track history
   const handleGeoJsonChange = (geo: FeatureCollection) => {
@@ -358,6 +389,23 @@ export default function App() {
     showNotification(`Mapa "${activeMap?.name}" byla exportována.`);
   };
 
+  const handleShare = async () => {
+    const dataToShare = currentGeoJson || activeMap?.geoJson;
+    if (!dataToShare || dataToShare.features.length === 0) {
+      showNotification('Na mapě zatím nejsou žádné prvky ke sdílení.');
+      return;
+    }
+
+    try {
+      const url = createSharedRouteUrl(activeMap?.name || 'Sdílená trasa', dataToShare);
+      await navigator.clipboard.writeText(url);
+      showNotification('Odkaz na trasu byl zkopírován do schránky.');
+    } catch (error) {
+      console.error('Failed to copy shared route link:', error);
+      showNotification('Odkaz se nepodařilo zkopírovat. Zkontrolujte oprávnění schránky.');
+    }
+  };
+
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
@@ -454,6 +502,7 @@ export default function App() {
         onOpenMapsModal={() => setIsMapsModalOpen(true)}
         onOpenInfoModal={() => setIsInfoModalOpen(true)}
         onExport={() => setIsExportModalOpen(true)}
+        onShare={handleShare}
         onImportClick={handleImportClick}
         onClearClick={handleClear}
         onSelectLocation={handleSelectLocation}

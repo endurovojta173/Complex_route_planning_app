@@ -1,4 +1,4 @@
-import { Navigation, HardDriveDownload, FolderUp, Trash2, FolderOpen, Info, Undo2, Redo2 } from 'lucide-react';
+import { Navigation, HardDriveDownload, FolderUp, Trash2, FolderOpen, Info, Undo2, Redo2, Share2 } from 'lucide-react';
 import type { SearchLocation } from '../../types/route';
 import { SearchBar } from '../Search/SearchBar';
 
@@ -11,6 +11,7 @@ interface NavbarProps {
   onOpenMapsModal: () => void;
   onOpenInfoModal: () => void;
   onExport: () => void;
+  onShare: () => void;
   onImportClick: () => void;
   onClearClick: () => void;
   onSelectLocation: (location: SearchLocation) => void;
@@ -25,6 +26,7 @@ export function Navbar({
   onOpenMapsModal,
   onOpenInfoModal,
   onExport,
+  onShare,
   onImportClick,
   onClearClick,
   onSelectLocation,
@@ -96,6 +98,17 @@ export function Navbar({
         >
           <FolderUp size={14} />
           <span>Importovat</span>
+        </button>
+
+        <button
+          type="button"
+          className="btn-action secondary"
+          onClick={onShare}
+          title="Zkopírovat odkaz na trasu"
+          id="btn-share-route"
+        >
+          <Share2 size={14} />
+          <span>Sdílet</span>
         </button>
 
         <button

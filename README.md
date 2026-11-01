@@ -23,6 +23,7 @@ This tool was designed and developed to solve a complex route planning and coord
 - **Multi-Basemap Support:** Switch seamlessly between OpenStreetMap Standard and Esri Satellite.
 - **Route Analytics:** Real-time distance measurement (km / mi), waypoint tracking, and shape counters.
 - **GeoJSON Import & Export:** Export your route data to `.geojson` files or import existing GeoJSON collections.
+- **Route Sharing:** Copy a link containing the current route and open it on GitHub Pages or another deployment. Shared routes are stored in the URL and imported as a separate local map; no route data is uploaded to a server.
 - **Location Search & Autocomplete:** Real-time geocoding search powered by OpenStreetMap Nominatim with smooth animated fly-to centering and location highlight pins.
 - **Docker-Only Ready:** Multi-stage `Dockerfile` and `docker-compose.yml` allowing you to run and develop the entire application using only Docker—no Node.js or npm installation required.
 
@@ -127,4 +128,3 @@ A GitHub Actions workflow is provided in `.github/workflows/deploy.yml`. When pu
 - Do not use the `browser_subagent` tool automatically.
 - Perform validation only using the linter (`oxlint`) and the TypeScript build (`tsc -b && vite build`).
 - Launch the browser ONLY if the user explicitly asks you to do so in a message.
-
