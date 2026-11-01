@@ -61,7 +61,7 @@ The application includes a multi-stage `Dockerfile` and `docker-compose.yml` sup
 - Maintain strict TypeScript and typing.
 - Use modern functional components and React hooks.
 - Ensure proper cleanup of map instances (Leaflet) and drawing tools (Geoman) inside `useEffect` to prevent memory leaks and duplication of overlay layers during re-renders.
-- **Base URL Setting:** In `vite.config.ts`, `base` is configured to use `process.env.BASE_PATH` or fallback to `/complex_route_planning_app/` if `GITHUB_ACTIONS` is set, and `'/'` for Docker or standard local dev.
+- **Base URL Setting:** In `vite.config.ts`, `base` uses `process.env.BASE_PATH` when set, and falls back to `'./'` for GitHub Actions so built assets resolve correctly under the Pages deployment path. Docker and standard local development use `'/'`.
 
 ## Testing Rules
 - Do NOT use the `browser_subagent` (browser clicking agent) automatically.
@@ -72,4 +72,3 @@ The application includes a multi-stage `Dockerfile` and `docker-compose.yml` sup
 - Do NOT re-read or explore the same files repeatedly before making edits. Make edits directly and concisely.
 - Keep tool calls to the minimum required to complete the task; do not execute redundant `view_file` checks.
 - Prioritize execution speed and avoid unnecessary intermediate steps.
-
