@@ -1748,9 +1748,15 @@
   pointer-events: none !important;
 }
 
+.svg-definitions {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
 .route-path {
-  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
-    drop-shadow(0 0 3px rgba(15, 23, 42, 0.9));
+  filter: url(#route-outline);
 }
 
 /* Popup Walking Direction Section */

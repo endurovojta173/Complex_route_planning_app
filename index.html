@@ -11,6 +11,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
+    <svg aria-hidden="true" focusable="false" class="svg-definitions">
+      <filter id="route-outline" x="-10%" y="-10%" width="120%" height="120%">
+        <feMorphology in="SourceAlpha" operator="dilate" radius="3" result="outer-outline" />
+        <feFlood flood-color="#102a26" result="outer-color" />
+        <feComposite in="outer-color" in2="outer-outline" operator="in" result="outer-stroke" />
+        <feMorphology in="SourceAlpha" operator="dilate" radius="1.5" result="inner-outline" />
+        <feFlood flood-color="#ffffff" result="inner-color" />
+        <feComposite in="inner-color" in2="inner-outline" operator="in" result="inner-stroke" />
+        <feComposite in="inner-stroke" in2="outer-stroke" operator="over" result="outlined-route" />
+        <feComposite in="SourceGraphic" in2="outlined-route" operator="over" />
+      </filter>
+    </svg>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
