@@ -85,6 +85,7 @@ interface RouteMapProps {
   onTileSelect: (id: TileProviderId) => void;
   onStatsChange: (stats: RouteStats) => void;
   onGeoJsonChange?: (geoJson: FeatureCollection) => void;
+  readOnly: boolean;
   importGeoJsonData: FeatureCollection | null;
   restoreGeoJsonData?: { geoJson: FeatureCollection; id: number } | null;
   clearTrigger: number;
@@ -103,6 +104,7 @@ export function RouteMap({
   onTileSelect,
   onStatsChange,
   onGeoJsonChange,
+  readOnly,
   importGeoJsonData,
   restoreGeoJsonData,
   clearTrigger,
@@ -234,13 +236,15 @@ export function RouteMap({
       features,
     };
 
-    saveGeoJsonToStorage(collection);
+    if (!readOnly) {
+      saveGeoJsonToStorage(collection);
+    }
     const stats = calculateRouteStats(collection, categoriesRef.current);
     onStatsChangeRef.current(stats);
-    if (onGeoJsonChangeRef.current) {
+    if (!readOnly && onGeoJsonChangeRef.current) {
       onGeoJsonChangeRef.current(collection);
     }
-  }, []);
+  }, [readOnly]);
 
   const updateLayerOutline = useCallback((layer: L.Layer) => {
     const outlineGroup = routeOutlinesRef.current;
@@ -828,13 +832,15 @@ export function RouteMap({
             });
           }
           drawnItems.addLayer(layer);
-          bindLayerEvents(layer);
+          if (!readOnly) {
+            bindLayerEvents(layer);
+          }
           updateLayerOutline(layer);
           updateLayerArrows(layer);
         },
       });
     },
-    [bindLayerEvents, updateLayerArrows, updateLayerOutline]
+    [bindLayerEvents, readOnly, updateLayerArrows, updateLayerOutline]
   );
 
   const initialTileProviderRef = useRef(tileProviderId);
@@ -888,21 +894,23 @@ export function RouteMap({
     const arrowLayersMap = arrowLayersMapRef.current;
 
     // Configure Geoman controls
-    map.pm.addControls({
-      position: 'topleft',
-      drawMarker: true,
-      drawCircleMarker: false,
-      drawPolyline: true,
-      drawRectangle: true,
-      drawPolygon: true,
-      drawCircle: false,
-      drawText: false,
-      cutPolygon: true,
-      removalMode: true,
-      editMode: true,
-      dragMode: true,
-      rotateMode: false,
-    });
+    if (!readOnly) {
+      map.pm.addControls({
+        position: 'topleft',
+        drawMarker: true,
+        drawCircleMarker: false,
+        drawPolyline: true,
+        drawRectangle: true,
+        drawPolygon: true,
+        drawCircle: false,
+        drawText: false,
+        cutPolygon: true,
+        removalMode: true,
+        editMode: true,
+        dragMode: true,
+        rotateMode: false,
+      });
+    }
 
     // Set styling options for newly drawn shapes based on active category
     const initialCat = activeCategoryRef.current;
@@ -1004,7 +1012,7 @@ export function RouteMap({
     map.on('pm:globalremovalmodetoggled', handleGlobalRemovalModeToggle);
 
     // Load saved GeoJSON from localStorage on mount
-    const savedGeoJson = loadGeoJsonFromStorage();
+    const savedGeoJson = readOnly ? null : loadGeoJsonFromStorage();
     if (savedGeoJson && savedGeoJson.features && savedGeoJson.features.length > 0) {
       try {
         const geoLayer = renderGeoJsonFeatures(savedGeoJson);
@@ -1123,7 +1131,7 @@ export function RouteMap({
       routeOutlinesRef.current = null;
       tileLayerRef.current = null;
     };
-  }, [bindLayerEvents, syncLayers, updateLayerArrows, updateLayerOutline, handleInsertPointIntoPolyline, renderGeoJsonFeatures]);
+  }, [bindLayerEvents, syncLayers, updateLayerArrows, updateLayerOutline, handleInsertPointIntoPolyline, readOnly, renderGeoJsonFeatures]);
 
   // Toggle cursor style and Geoman draw when entering/exiting add-point mode
   useEffect(() => {
@@ -1311,7 +1319,7 @@ export function RouteMap({
       <div ref={mapContainerRef} className="leaflet-container-view" id="leaflet-map" />
 
       {/* Unified Left Column Tools (Identical 34x34 size & style matching Geoman) */}
-      <div className="left-tools-column" id="left-tools-column">
+      {!readOnly && <div className="left-tools-column" id="left-tools-column">
         {/* Basemap Toggle */}
         <div className="left-tool-item">
           <button
@@ -1392,7 +1400,7 @@ export function RouteMap({
           onAddCategory={onAddCategory}
           onRemoveCategory={onRemoveCategory}
         />
-      </div>
+      </div>}
 
       {/* Floating Top Banner when Add Point Mode is Active */}
       {isAddPointMode && (

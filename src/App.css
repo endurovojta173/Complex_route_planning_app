@@ -22,6 +22,44 @@
   z-index: 1200;
 }
 
+.shared-view-header {
+  position: relative;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  height: 54px;
+  padding: 0 1.25rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.shared-view-brand {
+  color: var(--accent-primary);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.shared-view-header h1 {
+  overflow: hidden;
+  margin: 0;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shared-view-badge {
+  margin-left: auto;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
 .navbar-brand {
   display: flex;
   align-items: center;

@@ -32,9 +32,15 @@ import { createSharedRouteUrl, parseSharedRouteHash } from './utils/routeSharing
 import './App.css';
 
 export default function App() {
+  const [isReadOnly] = useState(() => window.location.hash.startsWith('#route='));
   const [categories, setCategories] = useState<RouteCategory[]>(() => getSavedCategories());
-  const [savedMaps, setSavedMaps] = useState<SavedMapItem[]>(() => getAllSavedMaps());
-  const [activeMapId, setActiveMapIdState] = useState<string>(() => getActiveMapId());
+  const [savedMaps, setSavedMaps] = useState<SavedMapItem[]>(() =>
+    isReadOnly ? [] : getAllSavedMaps()
+  );
+  const [activeMapId, setActiveMapIdState] = useState<string>(() =>
+    isReadOnly ? '' : getActiveMapId()
+  );
+  const [sharedRouteName, setSharedRouteName] = useState('');
   const [isMapsModalOpen, setIsMapsModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -107,22 +113,18 @@ export default function App() {
       );
 
       setTimeout(() => {
-        const sharedMap = createNewMap(sharedRoute.name, sharedRoute.geoJson);
-        setSavedMaps(getAllSavedMaps());
-        setActiveMapIdState(sharedMap.id);
-        setClearTrigger((prev) => prev + 1);
+        setSharedRouteName(sharedRoute.name);
         setCurrentGeoJson(sharedRoute.geoJson);
-        setStats(sharedMap.stats);
+        setStats(calculateRouteStats(sharedRoute.geoJson, categories));
         resetHistory(sharedRoute.geoJson);
 
         setTimeout(() => setImportedGeoJson(sharedRoute.geoJson), 20);
-        showNotification(`Načtena sdílená trasa: ${sharedRoute.name}`);
       }, 0);
     } catch (error) {
       console.error('Failed to load shared route from URL:', error);
       setTimeout(() => showNotification('Sdílený odkaz na trasu je neplatný nebo poškozený.'), 0);
     }
-  }, [resetHistory, showNotification]);
+  }, [categories, resetHistory, showNotification]);
 
   // Synchronize GeoJSON changes to active map in localStorage & track history
   const handleGeoJsonChange = (geo: FeatureCollection) => {
@@ -493,20 +495,28 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <Navbar
-        savedMapsCount={savedMaps.length}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        onOpenMapsModal={() => setIsMapsModalOpen(true)}
-        onOpenInfoModal={() => setIsInfoModalOpen(true)}
-        onExport={() => setIsExportModalOpen(true)}
-        onShare={handleShare}
-        onImportClick={handleImportClick}
-        onClearClick={handleClear}
-        onSelectLocation={handleSelectLocation}
-      />
+      {isReadOnly ? (
+        <header className="shared-view-header">
+          <span className="shared-view-brand">CRP</span>
+          <h1>{sharedRouteName || 'Sdílená trasa'}</h1>
+          <span className="shared-view-badge">Pouze prohlížení</span>
+        </header>
+      ) : (
+        <Navbar
+          savedMapsCount={savedMaps.length}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onOpenMapsModal={() => setIsMapsModalOpen(true)}
+          onOpenInfoModal={() => setIsInfoModalOpen(true)}
+          onExport={() => setIsExportModalOpen(true)}
+          onShare={handleShare}
+          onImportClick={handleImportClick}
+          onClearClick={handleClear}
+          onSelectLocation={handleSelectLocation}
+        />
+      )}
 
       <main className="main-content">
         <RouteMap
@@ -514,6 +524,7 @@ export default function App() {
           onTileSelect={setCurrentTileId}
           onStatsChange={setStats}
           onGeoJsonChange={handleGeoJsonChange}
+          readOnly={isReadOnly}
           importGeoJsonData={importedGeoJson}
           restoreGeoJsonData={restoreTrigger}
           clearTrigger={clearTrigger}
@@ -527,16 +538,18 @@ export default function App() {
           onRenameCategory={handleRenameCategory}
         />
 
-        <RouteStatsPanel
-          stats={stats}
-          categories={categories}
-          activeCategory={activeCategory}
-          onSelectCategory={setActiveCategory}
-        />
+        {!isReadOnly && (
+          <RouteStatsPanel
+            stats={stats}
+            categories={categories}
+            activeCategory={activeCategory}
+            onSelectCategory={setActiveCategory}
+          />
+        )}
       </main>
 
       {/* Saved Maps Manager Modal */}
-      <SavedMapsModal
+      {!isReadOnly && <SavedMapsModal
         isOpen={isMapsModalOpen}
         onClose={() => setIsMapsModalOpen(false)}
         maps={savedMaps}
@@ -546,16 +559,16 @@ export default function App() {
         onDuplicateMap={handleDuplicateMap}
         onDeleteMap={handleDeleteMap}
         onRenameMap={handleRenameMap}
-      />
+      />}
 
       {/* Info & About Modal */}
-      <InfoModal
+      {!isReadOnly && <InfoModal
         isOpen={isInfoModalOpen}
         onClose={() => setIsInfoModalOpen(false)}
-      />
+      />}
 
       {/* Export Options Modal (PDF, SVG, GeoJSON) */}
-      <ExportModal
+      {!isReadOnly && <ExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         activeMapName={activeMap?.name || 'Výchozí trasa'}
@@ -563,16 +576,16 @@ export default function App() {
         categories={categories}
         onExportGeoJson={handleExport}
         onShowNotification={showNotification}
-      />
+      />}
 
       {/* Hidden file input for GeoJSON import */}
-      <input
+      {!isReadOnly && <input
         ref={fileInputRef}
         type="file"
         accept=".geojson,application/json,.json"
         style={{ display: 'none' }}
         onChange={handleFileChange}
-      />
+      />}
 
       {/* Toast Notification */}
       {notification && (
