@@ -262,7 +262,9 @@ export function RouteMap({
     const color =
       layer.options?.color || layer.feature?.properties?.color || DEFAULT_CATEGORY.color;
     const isBidi = currentMode === 'both' || Boolean(layer.feature?.properties?.bidirectional);
-    const arrowMarkers = generatePolylineArrows(layer, color, isBidi);
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const arrowMarkers = generatePolylineArrows(layer, color, isBidi, map);
 
     if (arrowMarkers.length > 0) {
       const group = new L.LayerGroup(arrowMarkers);
@@ -738,6 +740,7 @@ export function RouteMap({
             color: col,
             weight: 4,
             opacity: 0.9,
+            className: 'route-path',
             fillColor: fillCol,
             fillOpacity: 0.25,
           };
@@ -784,6 +787,7 @@ export function RouteMap({
       zoom: 13,
       zoomControl: false,
     });
+    mapInstanceRef.current = map;
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -834,6 +838,7 @@ export function RouteMap({
       fillColor: initialCat.fillColor,
       fillOpacity: 0.25,
       weight: 4,
+      className: 'route-path',
     });
 
     // Global Geoman snap settings (essential for route branching & joining)
@@ -901,6 +906,10 @@ export function RouteMap({
       setTimeout(syncLayers, 20);
     };
 
+    const handleArrowZoomChange = () => {
+      drawnItems.eachLayer((layer) => updateLayerArrows(layer));
+    };
+
     const handleGlobalRemovalModeToggle = (e: { enabled: boolean }) => {
       if (!mapContainerRef.current) return;
       if (e.enabled) {
@@ -912,6 +921,7 @@ export function RouteMap({
 
     map.on('pm:create', handlePmCreate);
     map.on('pm:remove', handlePmRemove);
+    map.on('zoomend', handleArrowZoomChange);
     map.on('pm:globalremovalmodetoggled', handleGlobalRemovalModeToggle);
 
     // Load saved GeoJSON from localStorage on mount
@@ -1007,7 +1017,6 @@ export function RouteMap({
 
     syncLayers();
 
-    mapInstanceRef.current = map;
     setIsMapReady(true);
 
     // Cleanup Leaflet and Geoman instances on unmount to prevent leaks and re-render glitches
@@ -1067,6 +1076,7 @@ export function RouteMap({
         fillColor: activeCategory.fillColor,
         fillOpacity: 0.25,
         weight: 4,
+        className: 'route-path',
       });
     }
   }, [activeCategory]);

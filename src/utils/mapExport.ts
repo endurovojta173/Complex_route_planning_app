@@ -75,7 +75,7 @@ function getMapArrows(mapContainer: HTMLElement): ExportArrowItem[] {
             const color =
               layer.options?.color || layer.feature?.properties?.color || '#2ebd7f';
             const isBidi = Boolean(layer.feature?.properties?.bidirectional);
-            const markers = generatePolylineArrows(layer, color, isBidi);
+            const markers = generatePolylineArrows(layer, color, isBidi, map);
             for (const marker of markers) {
               const bearing = (marker.options as any)?.arrowBearing;
               const markerColor = (marker.options as any)?.arrowColor || color;
