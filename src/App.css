@@ -1748,17 +1748,6 @@
   pointer-events: none !important;
 }
 
-.svg-definitions {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-}
-
-.route-path {
-  filter: url(#route-outline);
-}
-
 /* Popup Walking Direction Section */
 .popup-direction-section {
   display: flex;

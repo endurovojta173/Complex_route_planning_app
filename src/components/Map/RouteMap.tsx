@@ -134,6 +134,11 @@ export function RouteMap({
   const arrowModeRef = useRef(arrowMode);
   const arrowLayersMapRef = useRef<Map<L.Layer, L.LayerGroup>>(new Map());
   const arrowsContainerRef = useRef<L.LayerGroup | null>(null);
+  const routeOutlinesRef = useRef<L.LayerGroup | null>(null);
+  const routeOutlineLayersRef = useRef<Map<L.Layer, L.Polyline>>(new Map());
+  const routeDashStylesRef = useRef<
+    Map<L.Layer, { dashArray?: string; dashOffset?: string }>
+  >(new Map());
 
   const [isAddPointMode, setIsAddPointMode] = useState(false);
   const isAddPointModeRef = useRef(false);
@@ -237,6 +242,45 @@ export function RouteMap({
     }
   }, []);
 
+  const updateLayerOutline = useCallback((layer: L.Layer) => {
+    const outlineGroup = routeOutlinesRef.current;
+    if (!outlineGroup) return;
+
+    const existingOutline = routeOutlineLayersRef.current.get(layer);
+    if (existingOutline) {
+      outlineGroup.removeLayer(existingOutline);
+      routeOutlineLayersRef.current.delete(layer);
+    }
+
+    if (!(layer instanceof L.Polyline) || layer instanceof L.Polygon) return;
+
+    let dashStyle = routeDashStylesRef.current.get(layer);
+    if (!dashStyle) {
+      const dashPatterns = ['2 7', '7 5', '1 5', '9 4 2 4', '4 4', '12 6'];
+      const index = routeDashStylesRef.current.size;
+      dashStyle = {
+        dashArray: dashPatterns[index % dashPatterns.length],
+        dashOffset: String(-((index * 3) % 12)),
+      };
+      routeDashStylesRef.current.set(layer, dashStyle);
+    }
+
+    const outline = L.polyline(layer.getLatLngs() as L.LatLng[] | L.LatLng[][], {
+      color: '#ffffff',
+      weight: 1.5,
+      opacity: 0.9,
+      lineCap: 'round',
+      lineJoin: 'round',
+      dashArray: dashStyle.dashArray,
+      dashOffset: dashStyle.dashOffset,
+      pane: 'routeCenterlinePane',
+      interactive: false,
+      pmIgnore: true,
+    });
+    outlineGroup.addLayer(outline);
+    routeOutlineLayersRef.current.set(layer, outline);
+  }, []);
+
   // Update or regenerate directional arrows for a polyline or polygon layer
   const updateLayerArrows = useCallback((layer: any) => {
     if (!arrowsContainerRef.current) return;
@@ -292,10 +336,11 @@ export function RouteMap({
         }
       }
 
+      updateLayerOutline(layer);
       updateLayerArrows(layer);
       syncLayers();
     },
-    [updateLayerArrows, syncLayers]
+    [updateLayerArrows, updateLayerOutline, syncLayers]
   );
 
   // Insert a new vertex into a polyline and refresh its graphics & storage
@@ -319,6 +364,7 @@ export function RouteMap({
         });
       }
 
+      updateLayerOutline(polyline);
       updateLayerArrows(polyline);
       syncLayers();
 
@@ -339,7 +385,7 @@ export function RouteMap({
         }
       }, 900);
     },
-    [syncLayers, updateLayerArrows]
+    [syncLayers, updateLayerArrows, updateLayerOutline]
   );
 
   // Cycle global arrows mode: single (➔) -> both (⇆) -> off -> single (➔)
@@ -382,10 +428,11 @@ export function RouteMap({
         layer.setIcon(createColoredMarkerIcon(newCat.color));
       }
 
+      updateLayerOutline(layer);
       updateLayerArrows(layer);
       syncLayers();
     },
-    [syncLayers, updateLayerArrows]
+    [syncLayers, updateLayerArrows, updateLayerOutline]
   );
 
   // Build the recoloring popup for any drawn layer
@@ -665,6 +712,12 @@ export function RouteMap({
               arrowsContainerRef.current.removeLayer(oldGroup);
               arrowLayersMapRef.current.delete(layer);
             }
+            const oldOutline = routeOutlineLayersRef.current.get(layer);
+            if (oldOutline && routeOutlinesRef.current) {
+              routeOutlinesRef.current.removeLayer(oldOutline);
+              routeOutlineLayersRef.current.delete(layer);
+            }
+            routeDashStylesRef.current.delete(layer);
             if (drawnItemsRef.current?.hasLayer(layer)) {
               drawnItemsRef.current.removeLayer(layer);
             }
@@ -689,10 +742,12 @@ export function RouteMap({
         }
       });
       layer.on('pm:edit', () => {
+        updateLayerOutline(layer);
         updateLayerArrows(layer);
         syncLayers();
       });
       layer.on('pm:dragend', () => {
+        updateLayerOutline(layer);
         updateLayerArrows(layer);
         syncLayers();
       });
@@ -700,8 +755,10 @@ export function RouteMap({
         if (e.layer && drawnItemsRef.current) {
           drawnItemsRef.current.addLayer(e.layer);
           attachEvents(e.layer);
+          updateLayerOutline(e.layer);
           updateLayerArrows(e.layer);
         }
+        updateLayerOutline(layer);
         updateLayerArrows(layer);
         syncLayers();
       });
@@ -711,6 +768,12 @@ export function RouteMap({
           arrowsContainerRef.current.removeLayer(oldGroup);
           arrowLayersMapRef.current.delete(layer);
         }
+        const oldOutline = routeOutlineLayersRef.current.get(layer);
+        if (oldOutline && routeOutlinesRef.current) {
+          routeOutlinesRef.current.removeLayer(oldOutline);
+          routeOutlineLayersRef.current.delete(layer);
+        }
+        routeDashStylesRef.current.delete(layer);
         if (drawnItemsRef.current?.hasLayer(layer)) {
           drawnItemsRef.current.removeLayer(layer);
         }
@@ -723,7 +786,7 @@ export function RouteMap({
         maxWidth: 290,
       });
     },
-    [syncLayers, createLayerPopupContent, updateLayerArrows, handleInsertPointIntoPolyline]
+    [syncLayers, createLayerPopupContent, updateLayerArrows, updateLayerOutline, handleInsertPointIntoPolyline]
   );
 
   // Helper to render GeoJSON features into drawnItems layer
@@ -740,7 +803,6 @@ export function RouteMap({
             color: col,
             weight: 4,
             opacity: 0.9,
-            className: 'route-path',
             fillColor: fillCol,
             fillOpacity: 0.25,
           };
@@ -767,11 +829,12 @@ export function RouteMap({
           }
           drawnItems.addLayer(layer);
           bindLayerEvents(layer);
+          updateLayerOutline(layer);
           updateLayerArrows(layer);
         },
       });
     },
-    [bindLayerEvents, updateLayerArrows]
+    [bindLayerEvents, updateLayerArrows, updateLayerOutline]
   );
 
   const initialTileProviderRef = useRef(tileProviderId);
@@ -790,6 +853,16 @@ export function RouteMap({
     mapInstanceRef.current = map;
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    const routeCenterlinePane = map.createPane('routeCenterlinePane');
+    routeCenterlinePane.style.zIndex = '450';
+    routeCenterlinePane.style.pointerEvents = 'none';
+    const routeOutlines = new L.LayerGroup().addTo(map);
+    routeOutlinesRef.current = routeOutlines;
+    const routeOutlineLayers = routeOutlineLayersRef.current;
+    const routeDashStyles = routeDashStylesRef.current;
+    routeOutlineLayers.clear();
+    routeDashStyles.clear();
 
     // Initial base tile layer
     const initialProvider =
@@ -838,7 +911,6 @@ export function RouteMap({
       fillColor: initialCat.fillColor,
       fillOpacity: 0.25,
       weight: 4,
-      className: 'route-path',
     });
 
     // Global Geoman snap settings (essential for route branching & joining)
@@ -872,6 +944,7 @@ export function RouteMap({
             weight: 4,
             opacity: 0.9,
           });
+          updateLayerOutline(layer);
         } else if (typeof layer.setIcon === 'function') {
           layer.setIcon(createColoredMarkerIcon(currentCat.color));
         }
@@ -899,6 +972,12 @@ export function RouteMap({
           arrowsContainerRef.current.removeLayer(oldGroup);
           arrowLayersMapRef.current.delete(e.layer);
         }
+        const oldOutline = routeOutlineLayersRef.current.get(e.layer);
+        if (oldOutline && routeOutlinesRef.current) {
+          routeOutlinesRef.current.removeLayer(oldOutline);
+          routeOutlineLayersRef.current.delete(e.layer);
+        }
+        routeDashStylesRef.current.delete(e.layer);
         if (drawnItems.hasLayer(e.layer)) {
           drawnItems.removeLayer(e.layer);
         }
@@ -1034,13 +1113,17 @@ export function RouteMap({
       drawnItems.clearLayers();
       arrowsContainer.clearLayers();
       arrowLayersMap.clear();
+      routeOutlines.clearLayers();
+      routeOutlineLayers.clear();
+      routeDashStyles.clear();
       map.remove();
       mapInstanceRef.current = null;
       drawnItemsRef.current = null;
       arrowsContainerRef.current = null;
+      routeOutlinesRef.current = null;
       tileLayerRef.current = null;
     };
-  }, [bindLayerEvents, syncLayers, updateLayerArrows, handleInsertPointIntoPolyline, renderGeoJsonFeatures]);
+  }, [bindLayerEvents, syncLayers, updateLayerArrows, updateLayerOutline, handleInsertPointIntoPolyline, renderGeoJsonFeatures]);
 
   // Toggle cursor style and Geoman draw when entering/exiting add-point mode
   useEffect(() => {
@@ -1076,7 +1159,6 @@ export function RouteMap({
         fillColor: activeCategory.fillColor,
         fillOpacity: 0.25,
         weight: 4,
-        className: 'route-path',
       });
     }
   }, [activeCategory]);
@@ -1126,6 +1208,9 @@ export function RouteMap({
       drawnItemsRef.current.clearLayers();
       arrowsContainerRef.current?.clearLayers();
       arrowLayersMapRef.current.clear();
+      routeOutlinesRef.current?.clearLayers();
+      routeOutlineLayersRef.current.clear();
+      routeDashStylesRef.current.clear();
 
       renderGeoJsonFeatures(restoreGeoJsonData.geoJson);
 
@@ -1143,6 +1228,9 @@ export function RouteMap({
     drawnItemsRef.current.clearLayers();
     arrowsContainerRef.current?.clearLayers();
     arrowLayersMapRef.current.clear();
+    routeOutlinesRef.current?.clearLayers();
+    routeOutlineLayersRef.current.clear();
+    routeDashStylesRef.current.clear();
     syncLayers();
   }, [clearTrigger, syncLayers]);
 
