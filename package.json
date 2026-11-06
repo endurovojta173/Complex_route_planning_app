@@ -1,5 +1,6 @@
 {
   "name": "complex-route-planning-app",
+  "description": "A lightweight, client-side map route & logistics planner. Draw routes with vertex snapping and branching, save automatically to browser storage, and export GeoJSON. Built with React 19, TypeScript, Vite, Leaflet, and Geoman.",
   "private": true,
   "version": "0.0.0",
   "type": "module",

@@ -1,8 +1,8 @@
 # CRP — Complex Route Planning App
 
-A modern, high-performance client-side web application for interactive map drawing, route branching, and local persistence directly in the browser.
+A lightweight, client-side map route & logistics planner. Draw routes with vertex snapping and branching, save automatically to browser storage, and export GeoJSON.
 
-Built with **React 19**, **TypeScript 6**, **Vite 8**, **Leaflet**, and **Geoman**.
+Built with **React 19**, **TypeScript 6**, **Vite 8**, **Leaflet 1.9**, and **Geoman 2.20**.
 
 ---
 
