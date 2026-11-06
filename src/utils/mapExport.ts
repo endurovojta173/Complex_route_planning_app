@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import { createMapPdfBlob, type PdfExportOptions } from './pdfGenerator';
+import { createMapPdfBlob, getPdfAvailableDimensions, type PdfExportOptions } from './pdfGenerator';
 import { generatePolylineArrows } from './routeArrows';
 
 /**
@@ -937,14 +937,170 @@ function drawNorthArrow(ctx: CanvasRenderingContext2D, cx: number, cy: number): 
 }
 
 /**
- * Exports the active map view with routes to a PDF file and triggers download
+ * Waits for map tiles inside the container to complete loading.
+ * Uses event listeners on pending tile img elements with a timeout fallback.
+ */
+async function waitForTilesToLoad(
+  mapContainer: HTMLElement,
+  timeoutMs = 2500
+): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let resolved = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanupAndResolve = () => {
+      if (resolved) return;
+      resolved = true;
+      if (timer) clearTimeout(timer);
+      setTimeout(resolve, 150);
+    };
+
+    timer = setTimeout(cleanupAndResolve, timeoutMs);
+
+    setTimeout(() => {
+      const tileImages = Array.from(
+        mapContainer.querySelectorAll<HTMLImageElement>('.leaflet-tile-pane img')
+      );
+
+      const pending = tileImages.filter((img) => !img.complete);
+      if (pending.length === 0) {
+        cleanupAndResolve();
+        return;
+      }
+
+      let remaining = pending.length;
+      const onTileDone = () => {
+        remaining--;
+        if (remaining <= 0) {
+          cleanupAndResolve();
+        }
+      };
+
+      for (const img of pending) {
+        img.addEventListener('load', onTileDone, { once: true });
+        img.addEventListener('error', onTileDone, { once: true });
+      }
+    }, 50);
+  });
+}
+
+/**
+ * Exports the active map view with routes to a PDF file and triggers download.
+ * Supports auto-framing ('fit-route') to fit all drawn routes and zones to the PDF page aspect ratio,
+ * 'fill-page' to expand the current center to full page, or 'current-screen' for monitor ratio.
  */
 export async function exportMapToPdf(
   mapContainer: HTMLElement,
   options: PdfExportOptions
 ): Promise<void> {
+  const framingMode = options.framingMode || 'fit-route';
   const scale = options.scale || 2.8; // High-DPI for crisp printing (~300 DPI on A4)
-  const canvas = await renderMapToCanvas(mapContainer, { scale });
+  const map: any = (mapContainer as any)._leaflet_map;
+
+  let canvas: HTMLCanvasElement;
+
+  if (framingMode === 'current-screen' || !map) {
+    canvas = await renderMapToCanvas(mapContainer, { scale });
+  } else {
+    // 1. Calculate target dimensions based on PDF page geometry
+    const { targetAspect } = getPdfAvailableDimensions({
+      orientation: options.orientation,
+      includeStats: options.includeStats,
+      includeLegend: options.includeLegend,
+      includeSignOff: options.includeSignOff,
+      categoriesCount: options.categories?.length || 0,
+    });
+
+    let exportWidth: number;
+    let exportHeight: number;
+
+    if (options.orientation === 'portrait') {
+      exportHeight = 1440;
+      exportWidth = Math.round(exportHeight * targetAspect);
+    } else {
+      exportWidth = 1440;
+      exportHeight = Math.round(exportWidth / targetAspect);
+    }
+
+    // 2. Save original map container styles and view
+    const origStyle = {
+      width: mapContainer.style.width,
+      height: mapContainer.style.height,
+      position: mapContainer.style.position,
+      top: mapContainer.style.top,
+      left: mapContainer.style.left,
+      zIndex: mapContainer.style.zIndex,
+      maxWidth: mapContainer.style.maxWidth,
+      maxHeight: mapContainer.style.maxHeight,
+      overflow: mapContainer.style.overflow,
+    };
+    const origBodyOverflow = document.body.style.overflow;
+    const origCenter = map.getCenter();
+    const origZoom = map.getZoom();
+
+    try {
+      // Temporarily expand container to target aspect ratio behind modal backdrop
+      document.body.style.overflow = 'hidden';
+      mapContainer.style.position = 'fixed';
+      mapContainer.style.top = '0px';
+      mapContainer.style.left = '0px';
+      mapContainer.style.width = `${exportWidth}px`;
+      mapContainer.style.height = `${exportHeight}px`;
+      mapContainer.style.maxWidth = 'none';
+      mapContainer.style.maxHeight = 'none';
+      mapContainer.style.overflow = 'hidden';
+      mapContainer.style.zIndex = '50';
+
+      map.invalidateSize({ animate: false });
+
+      if (framingMode === 'fit-route') {
+        const drawnItems: any = (mapContainer as any)._drawn_items;
+        let bounds: L.LatLngBounds | null = null;
+        if (drawnItems && typeof drawnItems.getBounds === 'function') {
+          const b = drawnItems.getBounds();
+          if (b && typeof b.isValid === 'function' && b.isValid()) {
+            bounds = b;
+          }
+        }
+
+        if (bounds) {
+          map.fitBounds(bounds, {
+            padding: [65, 65],
+            maxZoom: 16,
+            animate: false,
+          });
+        } else {
+          map.setView(origCenter, origZoom, { animate: false });
+        }
+      } else {
+        // 'fill-page': maintain current center & zoom, container matches PDF aspect ratio
+        map.setView(origCenter, origZoom, { animate: false });
+      }
+
+      // Wait for newly required tiles to finish loading
+      await waitForTilesToLoad(mapContainer);
+
+      // Render the perfectly framed map onto canvas
+      canvas = await renderMapToCanvas(mapContainer, { scale });
+    } finally {
+      // Restore all original styles and map state
+      mapContainer.style.width = origStyle.width;
+      mapContainer.style.height = origStyle.height;
+      mapContainer.style.position = origStyle.position;
+      mapContainer.style.top = origStyle.top;
+      mapContainer.style.left = origStyle.left;
+      mapContainer.style.zIndex = origStyle.zIndex;
+      mapContainer.style.maxWidth = origStyle.maxWidth;
+      mapContainer.style.maxHeight = origStyle.maxHeight;
+      mapContainer.style.overflow = origStyle.overflow;
+      document.body.style.overflow = origBodyOverflow;
+
+      map.invalidateSize({ animate: false });
+      map.setView(origCenter, origZoom, { animate: false });
+      map.fire('zoomend');
+    }
+  }
+
   const pdfBlob = await createMapPdfBlob(canvas, options);
   const cleanName = (options.title || 'mapa_trasy')
     .normalize('NFD')

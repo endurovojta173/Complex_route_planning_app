@@ -1,5 +1,7 @@
 import type { RouteCategory, RouteStats } from '../types/route';
 
+export type MapFramingMode = 'fit-route' | 'fill-page' | 'current-screen';
+
 export interface PdfExportOptions {
   title: string;
   subtitle?: string;
@@ -11,6 +13,66 @@ export interface PdfExportOptions {
   includeSignOff?: boolean;
   dateStr?: string;
   scale?: number;
+  framingMode?: MapFramingMode;
+}
+
+export interface PdfAvailableDimensions {
+  pageWidth: number;
+  pageHeight: number;
+  margin: number;
+  headerY: number;
+  contentTop: number;
+  contentBottom: number;
+  availWidth: number;
+  availHeight: number;
+  targetAspect: number;
+}
+
+/**
+ * Calculates exact printable content dimensions and aspect ratio for the PDF page.
+ */
+export function getPdfAvailableDimensions(options: {
+  orientation: 'landscape' | 'portrait';
+  includeStats: boolean;
+  includeLegend: boolean;
+  includeSignOff?: boolean;
+  categoriesCount?: number;
+}): PdfAvailableDimensions {
+  const isLandscape = options.orientation === 'landscape';
+  // Standard A4 dimensions in points (72 pt per inch)
+  const pageWidth = isLandscape ? 841.89 : 595.28;
+  const pageHeight = isLandscape ? 595.28 : 841.89;
+
+  const margin = 24;
+  const headerY = pageHeight - margin - 14;
+
+  let contentTop = headerY - 10;
+  if (options.includeStats) {
+    contentTop -= 24;
+  }
+
+  let contentBottom = margin + 14;
+  if (options.includeSignOff) {
+    contentBottom += 16;
+  }
+  if (options.includeLegend && (options.categoriesCount ?? 0) > 0) {
+    contentBottom += 28;
+  }
+
+  const availWidth = pageWidth - margin * 2;
+  const availHeight = contentTop - contentBottom;
+
+  return {
+    pageWidth,
+    pageHeight,
+    margin,
+    headerY,
+    contentTop,
+    contentBottom,
+    availWidth,
+    availHeight,
+    targetAspect: availWidth / availHeight,
+  };
 }
 
 /**
@@ -78,27 +140,21 @@ export async function createMapPdfBlob(
   const imgPixelHeight = canvas.height;
 
   // Layout geometry (points)
-  const margin = 24;
-  const headerY = pageHeight - margin - 14;
+  const layout = getPdfAvailableDimensions({
+    orientation: options.orientation,
+    includeStats: options.includeStats,
+    includeLegend: options.includeLegend,
+    includeSignOff: options.includeSignOff,
+    categoriesCount: options.categories?.length || 0,
+  });
 
-  let contentTop = headerY - 10;
-
-  // If stats included, reserve space for stats bar
-  if (options.includeStats) {
-    contentTop -= 24;
-  }
-
-  // Reserve bottom space for legend / sign-off footer
-  let contentBottom = margin + 14;
-  if (options.includeSignOff) {
-    contentBottom += 16;
-  }
-  if (options.includeLegend && options.categories.length > 0) {
-    contentBottom += 28;
-  }
-
-  const availWidth = pageWidth - margin * 2;
-  const availHeight = contentTop - contentBottom;
+  const {
+    margin,
+    headerY,
+    contentBottom,
+    availWidth,
+    availHeight,
+  } = layout;
 
   // Fit image into available rect while maintaining aspect ratio
   const imgAspect = imgPixelWidth / imgPixelHeight;
@@ -109,7 +165,13 @@ export async function createMapPdfBlob(
   let drawX = margin;
   let drawY = contentBottom;
 
-  if (imgAspect > rectAspect) {
+  if (Math.abs(imgAspect - rectAspect) < 0.01) {
+    // Exact or near-exact aspect ratio match - fill full printable area cleanly
+    drawW = availWidth;
+    drawH = availHeight;
+    drawX = margin;
+    drawY = contentBottom;
+  } else if (imgAspect > rectAspect) {
     drawW = availWidth;
     drawH = availWidth / imgAspect;
     drawY = contentBottom + (availHeight - drawH) / 2;

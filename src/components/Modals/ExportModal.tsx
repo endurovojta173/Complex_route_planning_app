@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, FileText, Image as ImageIcon, HardDriveDownload, Printer, Loader2, FileCode2, QrCode } from 'lucide-react';
 import type { RouteCategory, RouteStats } from '../../types/route';
 import { exportMapToPdf, exportMapToPng, exportMapToSvg } from '../../utils/mapExport';
+import type { MapFramingMode } from '../../utils/pdfGenerator';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export function ExportModal({
 }: ExportModalProps) {
   const [docTitle, setDocTitle] = useState(activeMapName || 'Plán trasy');
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
+  const [framingMode, setFramingMode] = useState<MapFramingMode>('fit-route');
   const [dpiQuality, setDpiQuality] = useState<'300' | '150'>('300');
   const [includeStats, setIncludeStats] = useState(true);
   const [includeLegend, setIncludeLegend] = useState(true);
@@ -53,6 +55,7 @@ export function ExportModal({
         includeLegend,
         includeSignOff,
         scale: dpiQuality === '300' ? 2.8 : 1.5,
+        framingMode,
       });
       onShowNotification(`PDF tisková mapa "${docTitle.trim() || activeMapName}" (${dpiQuality} DPI) byla úspěšně stažena.`);
       onClose();
@@ -134,7 +137,7 @@ export function ExportModal({
               <div className="export-card-info">
                 <h3 className="export-card-title">PDF dokument (.pdf)</h3>
                 <p className="export-card-desc">
-                  Kompletní tisková mapa s aktuálním výřezem, trasou, měřítkem a statistikami.
+                  Kompletní tisková mapa přizpůsobená formátu A4 bez ořezu, s trasou, měřítkem a statistikami.
                 </p>
               </div>
             </div>
@@ -170,6 +173,36 @@ export function ExportModal({
                     onClick={() => setOrientation('portrait')}
                   >
                     Na výšku (A4)
+                  </button>
+                </div>
+              </div>
+
+              <div className="export-option-group">
+                <label className="export-option-label">Výřez a přizpůsobení mapy pro PDF:</label>
+                <div className="orientation-toggle-group">
+                  <button
+                    type="button"
+                    className={`orientation-btn ${framingMode === 'fit-route' ? 'active' : ''}`}
+                    onClick={() => setFramingMode('fit-route')}
+                    title="Automaticky přizpůsobí měřítko tak, aby celá trasa byla vidět a mapa vyplnila celou plochu stránky A4 bez ořezu"
+                  >
+                    Přizpůsobit trase (A4)
+                  </button>
+                  <button
+                    type="button"
+                    className={`orientation-btn ${framingMode === 'fill-page' ? 'active' : ''}`}
+                    onClick={() => setFramingMode('fill-page')}
+                    title="Vyplní celou plochu stránky A4 z aktuálního středu pohledu bez bílých okrajů"
+                  >
+                    Vyplnit A4 z pohledu
+                  </button>
+                  <button
+                    type="button"
+                    className={`orientation-btn ${framingMode === 'current-screen' ? 'active' : ''}`}
+                    onClick={() => setFramingMode('current-screen')}
+                    title="Ponechá původní poměr stran a výřez z monitoru počítače"
+                  >
+                    Výřez monitoru
                   </button>
                 </div>
               </div>
