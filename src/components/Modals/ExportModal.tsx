@@ -27,7 +27,7 @@ export function ExportModal({
 }: ExportModalProps) {
   const [docTitle, setDocTitle] = useState(activeMapName || 'Plán trasy');
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
-  const [framingMode, setFramingMode] = useState<MapFramingMode>('fit-route');
+  const [framingMode, setFramingMode] = useState<MapFramingMode>('keep-zoom');
   const [dpiQuality, setDpiQuality] = useState<'300' | '150'>('300');
   const [includeStats, setIncludeStats] = useState(true);
   const [includeLegend, setIncludeLegend] = useState(true);
@@ -137,7 +137,7 @@ export function ExportModal({
               <div className="export-card-info">
                 <h3 className="export-card-title">PDF dokument (.pdf)</h3>
                 <p className="export-card-desc">
-                  Kompletní tisková mapa přizpůsobená formátu A4 bez ořezu, s trasou, měřítkem a statistikami.
+                  Kompletní tisková mapa přizpůsobená formátu A4 v detailním aktuálním přiblížení.
                 </p>
               </div>
             </div>
@@ -182,27 +182,27 @@ export function ExportModal({
                 <div className="orientation-toggle-group">
                   <button
                     type="button"
-                    className={`orientation-btn ${framingMode === 'fit-route' ? 'active' : ''}`}
-                    onClick={() => setFramingMode('fit-route')}
-                    title="Automaticky přizpůsobí měřítko tak, aby celá trasa byla vidět a mapa vyplnila celou plochu stránky A4 bez ořezu"
+                    className={`orientation-btn ${framingMode === 'keep-zoom' ? 'active' : ''}`}
+                    onClick={() => setFramingMode('keep-zoom')}
+                    title="Ponechá přesný detail a úroveň přiblížení (zoom) z obrazovky a vyplní celou stránku A4 bez odzoomování"
                   >
-                    Přizpůsobit trase (A4)
-                  </button>
-                  <button
-                    type="button"
-                    className={`orientation-btn ${framingMode === 'fill-page' ? 'active' : ''}`}
-                    onClick={() => setFramingMode('fill-page')}
-                    title="Vyplní celou plochu stránky A4 z aktuálního středu pohledu bez bílých okrajů"
-                  >
-                    Vyplnit A4 z pohledu
+                    Aktuální zoom (celá A4)
                   </button>
                   <button
                     type="button"
                     className={`orientation-btn ${framingMode === 'current-screen' ? 'active' : ''}`}
                     onClick={() => setFramingMode('current-screen')}
-                    title="Ponechá původní poměr stran a výřez z monitoru počítače"
+                    title="Ponechá přesný poměr stran a výřez z monitoru počítače"
                   >
                     Výřez monitoru
+                  </button>
+                  <button
+                    type="button"
+                    className={`orientation-btn ${framingMode === 'fit-route' ? 'active' : ''}`}
+                    onClick={() => setFramingMode('fit-route')}
+                    title="Automaticky odzoomuje a přizpůsobí měřítko tak, aby byla vidět kompletní trasa od začátku do konce"
+                  >
+                    Celá trasa (odzoomovat)
                   </button>
                 </div>
               </div>

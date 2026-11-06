@@ -1,6 +1,6 @@
 import type { RouteCategory, RouteStats } from '../types/route';
 
-export type MapFramingMode = 'fit-route' | 'fill-page' | 'current-screen';
+export type MapFramingMode = 'keep-zoom' | 'current-screen' | 'fit-route' | 'fill-page';
 
 export interface PdfExportOptions {
   title: string;

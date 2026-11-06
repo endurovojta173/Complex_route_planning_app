@@ -986,14 +986,17 @@ async function waitForTilesToLoad(
 
 /**
  * Exports the active map view with routes to a PDF file and triggers download.
- * Supports auto-framing ('fit-route') to fit all drawn routes and zones to the PDF page aspect ratio,
- * 'fill-page' to expand the current center to full page, or 'current-screen' for monitor ratio.
+ * Supports:
+ * - 'keep-zoom' (default): strictly maintains user's current zoom level & center,
+ *   expanding container to the PDF printable aspect ratio so the page is filled without unzooming or cropping.
+ * - 'current-screen': exact 1:1 monitor screen rectangle (may have white letterbox bars).
+ * - 'fit-route': zooms out / fits bounds to encompass all drawn routes.
  */
 export async function exportMapToPdf(
   mapContainer: HTMLElement,
   options: PdfExportOptions
 ): Promise<void> {
-  const framingMode = options.framingMode || 'fit-route';
+  const framingMode = options.framingMode || 'keep-zoom';
   const scale = options.scale || 2.8; // High-DPI for crisp printing (~300 DPI on A4)
   const map: any = (mapContainer as any)._leaflet_map;
 
@@ -1011,15 +1014,38 @@ export async function exportMapToPdf(
       categoriesCount: options.categories?.length || 0,
     });
 
+    const rect = mapContainer.getBoundingClientRect();
+    const screenW = Math.max(Math.round(rect.width), 600);
+    const screenH = Math.max(Math.round(rect.height), 400);
+
     let exportWidth: number;
     let exportHeight: number;
 
-    if (options.orientation === 'portrait') {
-      exportHeight = 1440;
-      exportWidth = Math.round(exportHeight * targetAspect);
+    if (framingMode === 'fit-route') {
+      if (options.orientation === 'portrait') {
+        exportHeight = 1440;
+        exportWidth = Math.round(exportHeight * targetAspect);
+      } else {
+        exportWidth = 1440;
+        exportHeight = Math.round(exportWidth / targetAspect);
+      }
     } else {
-      exportWidth = 1440;
+      // 'keep-zoom' / 'fill-page':
+      // Expand from current screen dimensions so 100% of the user's visible area is preserved,
+      // plus extended surroundings to fill the PDF printable area at the EXACT same zoom level.
+      exportWidth = Math.max(screenW, Math.round(screenH * targetAspect));
       exportHeight = Math.round(exportWidth / targetAspect);
+
+      if (exportHeight < screenH) {
+        exportHeight = screenH;
+        exportWidth = Math.round(exportHeight * targetAspect);
+      }
+
+      // Safety clamp for ultra-wide / 4K+ displays to prevent memory exhaustion
+      if (exportWidth > 2560) {
+        exportWidth = 2560;
+        exportHeight = Math.round(exportWidth / targetAspect);
+      }
     }
 
     // 2. Save original map container styles and view
@@ -1073,14 +1099,14 @@ export async function exportMapToPdf(
           map.setView(origCenter, origZoom, { animate: false });
         }
       } else {
-        // 'fill-page': maintain current center & zoom, container matches PDF aspect ratio
+        // 'keep-zoom': strictly keep the exact zoom level & center point without any unzooming!
         map.setView(origCenter, origZoom, { animate: false });
       }
 
       // Wait for newly required tiles to finish loading
       await waitForTilesToLoad(mapContainer);
 
-      // Render the perfectly framed map onto canvas
+      // Render the perfectly framed map onto canvas at exact current zoom
       canvas = await renderMapToCanvas(mapContainer, { scale });
     } finally {
       // Restore all original styles and map state
