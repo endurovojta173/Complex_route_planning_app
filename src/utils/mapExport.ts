@@ -692,7 +692,8 @@ export async function exportMapToPdf(
   mapContainer: HTMLElement,
   options: PdfExportOptions
 ): Promise<void> {
-  const canvas = await renderMapToCanvas(mapContainer, { scale: 1.5 });
+  const scale = options.scale || 2.8; // High-DPI for crisp printing (~300 DPI on A4)
+  const canvas = await renderMapToCanvas(mapContainer, { scale });
   const pdfBlob = await createMapPdfBlob(canvas, options);
   const cleanName = (options.title || 'mapa_trasy')
     .normalize('NFD')

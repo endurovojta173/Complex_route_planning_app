@@ -2420,3 +2420,320 @@
   color: var(--text-dim);
   font-size: 0.65rem;
 }
+
+/* ==========================================================================
+   GPS User Marker (Pulsing live geolocation dot)
+   ========================================================================== */
+.gps-user-marker-container {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gps-pulse-circle {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.35);
+  animation: gps-pulse-anim 2s infinite ease-out;
+}
+
+.gps-dot-center {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #2563eb;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.45);
+}
+
+@keyframes gps-pulse-anim {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   Share Modal & Mobile QR Code
+   ========================================================================== */
+.share-modal {
+  max-width: 680px;
+  width: 95%;
+}
+
+.share-modal-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.share-modal-grid {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .share-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.share-qr-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.share-qr-wrapper {
+  width: 240px;
+  height: 240px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.share-qr-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.share-qr-loading,
+.share-qr-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  color: #475569;
+  text-align: center;
+  font-size: 0.8rem;
+  padding: 1rem;
+}
+
+.share-qr-download-btn {
+  width: 100%;
+  height: 34px;
+  justify-content: center;
+  font-size: 0.8rem;
+}
+
+.share-info-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.share-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.share-section-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.share-url-box {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.share-url-input {
+  flex: 1;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  outline: none;
+  font-family: monospace;
+}
+
+.share-url-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.share-copy-btn {
+  height: 34px;
+  padding: 0 0.85rem;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.share-benefits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.share-benefit-item {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+
+.share-benefit-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: rgba(46, 189, 127, 0.12);
+  color: var(--accent-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.share-benefit-content strong {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+}
+
+.share-benefit-content p {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  margin: 0.15rem 0 0 0;
+}
+
+.share-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.25rem;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.share-open-btn {
+  font-size: 0.78rem;
+}
+
+.shared-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1.25rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  height: 52px;
+}
+
+.shared-view-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.shared-header-action {
+  font-size: 0.78rem;
+  padding: 0 0.75rem;
+  height: 32px;
+}
+
+/* ==========================================================================
+   Print Optimization for window.print() / Ctrl+P
+   ========================================================================== */
+@media print {
+  @page {
+    size: landscape;
+    margin: 8mm;
+  }
+
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .app-container {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .navbar-header,
+  .shared-view-header,
+  .modal-backdrop,
+  .left-tools-column,
+  .leaflet-control-zoom,
+  .leaflet-pm-toolbar,
+  .geoman-toolbar,
+  .search-container,
+  .toast-notification,
+  .stats-panel-minimized,
+  .add-point-floating-banner,
+  .map-loader-backdrop {
+    display: none !important;
+  }
+
+  .main-content {
+    display: block !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .map-wrapper {
+    position: relative !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .leaflet-container-view {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .leaflet-tile {
+    filter: none !important;
+  }
+
+  .leaflet-overlay-pane svg {
+    display: block !important;
+  }
+
+  .route-stats-panel {
+    position: absolute !important;
+    bottom: 10px !important;
+    left: 10px !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    z-index: 9999 !important;
+  }
+}

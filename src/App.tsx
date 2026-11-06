@@ -6,6 +6,8 @@ import { Navbar } from './components/Header/Navbar';
 import { SavedMapsModal } from './components/SavedMaps/SavedMapsModal';
 import { InfoModal } from './components/Info/InfoModal';
 import { ExportModal } from './components/Modals/ExportModal';
+import { ShareModal } from './components/Modals/ShareModal';
+import { Share2 } from 'lucide-react';
 import type { RouteStats, TileProviderId, SearchLocation, SavedMapItem } from './types/route';
 import {
   DEFAULT_CATEGORY,
@@ -44,6 +46,7 @@ export default function App() {
   const [isMapsModalOpen, setIsMapsModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [activeCategoryIds, setActiveCategoryIds] = useState<string[]>(() => getActiveCategoryIds());
   const [activeCategory, setActiveCategory] = useState<RouteCategory>(() => {
     const list = getSavedCategories();
@@ -401,11 +404,10 @@ export default function App() {
     try {
       const url = createSharedRouteUrl(activeMap?.name || 'Sdílená trasa', dataToShare);
       await navigator.clipboard.writeText(url);
-      showNotification('Odkaz na trasu byl zkopírován do schránky.');
-    } catch (error) {
-      console.error('Failed to copy shared route link:', error);
-      showNotification('Odkaz se nepodařilo zkopírovat. Zkontrolujte oprávnění schránky.');
+    } catch {
+      // Ignore clipboard write failure if modal opens
     }
+    setIsShareModalOpen(true);
   };
 
   const handleImportClick = () => {
@@ -497,9 +499,20 @@ export default function App() {
     <div className="app-container">
       {isReadOnly ? (
         <header className="shared-view-header">
-          <span className="shared-view-brand">CRP</span>
-          <h1>{sharedRouteName || 'Sdílená trasa'}</h1>
-          <span className="shared-view-badge">Pouze prohlížení</span>
+          <div className="shared-view-title-group">
+            <span className="shared-view-brand">CRP</span>
+            <h1>{sharedRouteName || 'Sdílená trasa'}</h1>
+            <span className="shared-view-badge">Pouze prohlížení</span>
+          </div>
+          <button
+            type="button"
+            className="btn-action secondary shared-header-action"
+            onClick={() => setIsShareModalOpen(true)}
+            title="Zobrazit QR kód a odkaz pro sdílení"
+          >
+            <Share2 size={15} />
+            <span>QR & Odkaz</span>
+          </button>
         </header>
       ) : (
         <Navbar
@@ -536,6 +549,7 @@ export default function App() {
           onAddCategory={handleAddCategory}
           onRemoveCategory={handleRemoveCategory}
           onRenameCategory={handleRenameCategory}
+          onShowNotification={showNotification}
         />
 
         {!isReadOnly && (
@@ -576,7 +590,17 @@ export default function App() {
         categories={categories}
         onExportGeoJson={handleExport}
         onShowNotification={showNotification}
+        onOpenShareModal={() => setIsShareModalOpen(true)}
       />}
+
+      {/* Share & Mobile QR Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        activeMapName={activeMap?.name || sharedRouteName || 'Sdílená trasa'}
+        geoJson={currentGeoJson || activeMap?.geoJson || null}
+        onShowNotification={showNotification}
+      />
 
       {/* Hidden file input for GeoJSON import */}
       {!isReadOnly && <input

@@ -20,7 +20,7 @@ import {
   type RouteCategory,
 } from '../../utils/routeColors';
 import { RouteColorsBar } from './RouteColorsBar';
-import { Map as MapIcon, Satellite, Navigation, MapPinPlus, Check, ArrowUpDown } from 'lucide-react';
+import { Map as MapIcon, Satellite, Navigation, MapPinPlus, Check, ArrowUpDown, Locate, LocateFixed, Loader2 } from 'lucide-react';
 import { generatePolylineArrows } from '../../utils/routeArrows';
 import { findClosestPointOnPolyline, insertVertex } from '../../utils/routeGeometry';
 
@@ -97,6 +97,7 @@ interface RouteMapProps {
   onAddCategory?: (id: string) => void;
   onRemoveCategory?: (id: string) => void;
   onRenameCategory?: (id: string, newName: string) => void;
+  onShowNotification?: (msg: string) => void;
 }
 
 export function RouteMap({
@@ -116,6 +117,7 @@ export function RouteMap({
   onAddCategory,
   onRemoveCategory,
   onRenameCategory,
+  onShowNotification,
 }: RouteMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -145,6 +147,126 @@ export function RouteMap({
   const [isAddPointMode, setIsAddPointMode] = useState(false);
   const isAddPointModeRef = useRef(false);
   const previewSnapMarkerRef = useRef<L.CircleMarker | null>(null);
+
+  // GPS Geolocation state & refs
+  const [isLocating, setIsLocating] = useState(false);
+  const [isTrackingGps, setIsTrackingGps] = useState(false);
+  const userGpsMarkerRef = useRef<L.Marker | null>(null);
+  const userAccuracyCircleRef = useRef<L.Circle | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleToggleGps = useCallback(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (isTrackingGps) {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      if (userGpsMarkerRef.current) {
+        userGpsMarkerRef.current.remove();
+        userGpsMarkerRef.current = null;
+      }
+      if (userAccuracyCircleRef.current) {
+        userAccuracyCircleRef.current.remove();
+        userAccuracyCircleRef.current = null;
+      }
+      setIsTrackingGps(false);
+      setIsLocating(false);
+      onShowNotification?.('GPS sledování polohy bylo vypnuto.');
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      onShowNotification?.('Váš prohlížeč nepodporuje geolokaci (GPS).');
+      return;
+    }
+
+    setIsLocating(true);
+    onShowNotification?.('Zjišťuji vaši GPS polohu...');
+
+    const updatePosition = (pos: GeolocationPosition, isFirst: boolean) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      const latLng = L.latLng(latitude, longitude);
+
+      if (!userGpsMarkerRef.current) {
+        const pulseIcon = L.divIcon({
+          className: 'gps-user-marker-container',
+          html: '<div class="gps-pulse-circle"></div><div class="gps-dot-center"></div>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+        userGpsMarkerRef.current = L.marker(latLng, {
+          icon: pulseIcon,
+          zIndexOffset: 1000,
+        }).addTo(map);
+        userGpsMarkerRef.current.bindPopup(
+          `<strong>Vaše aktuální poloha</strong><br/>Přesnost: ±${Math.round(accuracy)} m`
+        );
+      } else {
+        userGpsMarkerRef.current.setLatLng(latLng);
+        userGpsMarkerRef.current.setPopupContent(
+          `<strong>Vaše aktuální poloha</strong><br/>Přesnost: ±${Math.round(accuracy)} m`
+        );
+      }
+
+      if (!userAccuracyCircleRef.current) {
+        userAccuracyCircleRef.current = L.circle(latLng, {
+          radius: accuracy,
+          color: '#2563eb',
+          weight: 1.5,
+          fillColor: '#3b82f6',
+          fillOpacity: 0.12,
+        }).addTo(map);
+      } else {
+        userAccuracyCircleRef.current.setLatLng(latLng);
+        userAccuracyCircleRef.current.setRadius(accuracy);
+      }
+
+      if (isFirst) {
+        map.flyTo(latLng, Math.max(map.getZoom(), 16), {
+          animate: true,
+          duration: 1.2,
+        });
+        onShowNotification?.(`GPS poloha nalezena (přesnost: ±${Math.round(accuracy)} m).`);
+      }
+
+      setIsLocating(false);
+      setIsTrackingGps(true);
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        updatePosition(pos, true);
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          (wPos) => updatePosition(wPos, false),
+          (err) => console.warn('GPS watch error:', err),
+          { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
+        );
+      },
+      (err) => {
+        setIsLocating(false);
+        setIsTrackingGps(false);
+        console.error('Geolocation error:', err);
+        onShowNotification?.(
+          err.code === 1
+            ? 'Přístup k GPS byl zamítnut. Povolte prosím polohu v nastavení prohlížeče.'
+            : 'Nepodařilo se zjistit vaši polohu.'
+        );
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }, [isTrackingGps, onShowNotification]);
 
   useEffect(() => {
     arrowModeRef.current = arrowMode;
@@ -1319,8 +1441,8 @@ export function RouteMap({
       <div ref={mapContainerRef} className="leaflet-container-view" id="leaflet-map" />
 
       {/* Unified Left Column Tools (Identical 34x34 size & style matching Geoman) */}
-      {!readOnly && <div className="left-tools-column" id="left-tools-column">
-        {/* Basemap Toggle */}
+      <div className="left-tools-column" id="left-tools-column">
+        {/* Basemap Toggle - Available in edit & read-only shared mode */}
         <div className="left-tool-item">
           <button
             type="button"
@@ -1340,67 +1462,103 @@ export function RouteMap({
           </div>
         </div>
 
-        {/* Direction Arrows Toggle: Single -> Both -> Off */}
+        {/* GPS Geolocation Toggle - Available in edit & read-only shared mode */}
         <div className="left-tool-item">
           <button
             type="button"
-            className={`left-tool-btn ${arrowMode !== 'off' ? 'is-active' : ''}`}
-            onClick={cycleArrowMode}
+            className={`left-tool-btn ${isTrackingGps ? 'is-active' : ''}`}
+            onClick={handleToggleGps}
             title={
-              arrowMode === 'single'
-                ? 'Šipky: Jednosměrné (➔) — Klikněte pro přepnutí na Obousměrné'
-                : arrowMode === 'both'
-                  ? 'Šipky: Obousměrné (⇆) — Klikněte pro skrytí'
-                  : 'Šipky: Vypnuty — Klikněte pro zapnutí'
+              isTrackingGps
+                ? 'GPS sledování je aktivní — Kliknutím vypnete'
+                : 'Moje poloha — Zobrazit aktuální GPS polohu na mapě'
             }
-            aria-label="Přepnout směrové šipky na trasách"
+            aria-label="Moje poloha (GPS)"
+            disabled={isLocating}
           >
-            {arrowMode === 'both' ? (
-              <ArrowUpDown size={17} />
+            {isLocating ? (
+              <Loader2 size={17} className="spinner-icon-inline" />
+            ) : isTrackingGps ? (
+              <LocateFixed size={17} />
             ) : (
-              <Navigation size={17} />
+              <Locate size={17} />
             )}
           </button>
           <div className="left-tool-tooltip">
-            {arrowMode === 'single'
-              ? 'Šipky: Jednosměrné (➔)'
-              : arrowMode === 'both'
-                ? 'Šipky: Obousměrné (⇆)'
-                : 'Šipky: Vypnuty'}
+            {isLocating
+              ? 'Zjišťuji GPS...'
+              : isTrackingGps
+                ? 'GPS aktivní (Vypnout)'
+                : 'Moje poloha (GPS)'}
           </div>
         </div>
 
-        {/* Add Point Mode Toggle */}
-        <div className="left-tool-item">
-          <button
-            type="button"
-            className={`left-tool-btn ${isAddPointMode ? 'is-active' : ''}`}
-            onClick={() => setIsAddPointMode((prev) => !prev)}
-            title={
-              isAddPointMode
-                ? 'Režim vkládání bodů je aktivní — Kliknutím ukončíte'
-                : 'Nástroj: Přidat bod do existující trasy'
-            }
-            aria-label="Nástroj přidat bod do trasy"
-          >
-            <MapPinPlus size={17} />
-          </button>
-          <div className="left-tool-tooltip">
-            {isAddPointMode ? 'Ukončit vkládání bodů' : 'Přidat bod do trasy'}
-          </div>
-        </div>
+        {/* Edit-only tools */}
+        {!readOnly && (
+          <>
+            {/* Direction Arrows Toggle: Single -> Both -> Off */}
+            <div className="left-tool-item">
+              <button
+                type="button"
+                className={`left-tool-btn ${arrowMode !== 'off' ? 'is-active' : ''}`}
+                onClick={cycleArrowMode}
+                title={
+                  arrowMode === 'single'
+                    ? 'Šipky: Jednosměrné (➔) — Klikněte pro přepnutí na Obousměrné'
+                    : arrowMode === 'both'
+                      ? 'Šipky: Obousměrné (⇆) — Klikněte pro skrytí'
+                      : 'Šipky: Vypnuty — Klikněte pro zapnutí'
+                }
+                aria-label="Přepnout směrové šipky na trasách"
+              >
+                {arrowMode === 'both' ? (
+                  <ArrowUpDown size={17} />
+                ) : (
+                  <Navigation size={17} />
+                )}
+              </button>
+              <div className="left-tool-tooltip">
+                {arrowMode === 'single'
+                  ? 'Šipky: Jednosměrné (➔)'
+                  : arrowMode === 'both'
+                    ? 'Šipky: Obousměrné (⇆)'
+                    : 'Šipky: Vypnuty'}
+              </div>
+            </div>
 
-        {/* Drawing Colors & Add Color */}
-        <RouteColorsBar
-          categories={categories}
-          activeCategoryIds={activeCategoryIds}
-          activeCategory={activeCategory}
-          onSelectCategory={onActiveCategoryChange}
-          onRenameCategory={onRenameCategory}
-          onAddCategory={onAddCategory}
-          onRemoveCategory={onRemoveCategory}
-        />
-      </div>}
+            {/* Add Point Mode Toggle */}
+            <div className="left-tool-item">
+              <button
+                type="button"
+                className={`left-tool-btn ${isAddPointMode ? 'is-active' : ''}`}
+                onClick={() => setIsAddPointMode((prev) => !prev)}
+                title={
+                  isAddPointMode
+                    ? 'Režim vkládání bodů je aktivní — Kliknutím ukončíte'
+                    : 'Nástroj: Přidat bod do existující trasy'
+                }
+                aria-label="Nástroj přidat bod do trasy"
+              >
+                <MapPinPlus size={17} />
+              </button>
+              <div className="left-tool-tooltip">
+                {isAddPointMode ? 'Ukončit vkládání bodů' : 'Přidat bod do trasy'}
+              </div>
+            </div>
+
+            {/* Drawing Colors & Add Color */}
+            <RouteColorsBar
+              categories={categories}
+              activeCategoryIds={activeCategoryIds}
+              activeCategory={activeCategory}
+              onSelectCategory={onActiveCategoryChange}
+              onRenameCategory={onRenameCategory}
+              onAddCategory={onAddCategory}
+              onRemoveCategory={onRemoveCategory}
+            />
+          </>
+        )}
+      </div>
 
       {/* Floating Top Banner when Add Point Mode is Active */}
       {isAddPointMode && (

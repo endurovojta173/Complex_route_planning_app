@@ -10,6 +10,7 @@ export interface PdfExportOptions {
   includeLegend: boolean;
   includeSignOff?: boolean;
   dateStr?: string;
+  scale?: number;
 }
 
 /**

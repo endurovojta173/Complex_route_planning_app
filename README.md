@@ -6,6 +6,12 @@ Built with **React 19**, **TypeScript 6**, **Vite 8**, **Leaflet 1.9**, and **Ge
 
 ---
 
+## ℹ️ About
+
+An interactive route and logistics planning web application designed for complex event coordination. It allows manual drawing, vertex snapping, route branching, and local GeoJSON storage entirely in the browser without any backend or database dependencies.
+
+---
+
 ## 📖 Origin & Creator
 
 Created by **Vojtěch Břenek** (aka [endurovojta173](https://github.com/endurovojta173)).

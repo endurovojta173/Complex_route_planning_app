@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, FileText, Image as ImageIcon, HardDriveDownload, Printer, Loader2, FileCode2 } from 'lucide-react';
+import { X, FileText, Image as ImageIcon, HardDriveDownload, Printer, Loader2, FileCode2, QrCode } from 'lucide-react';
 import type { RouteCategory, RouteStats } from '../../types/route';
 import { exportMapToPdf, exportMapToPng, exportMapToSvg } from '../../utils/mapExport';
 
@@ -11,6 +11,7 @@ interface ExportModalProps {
   categories: RouteCategory[];
   onExportGeoJson: () => void;
   onShowNotification: (msg: string) => void;
+  onOpenShareModal?: () => void;
 }
 
 export function ExportModal({
@@ -21,10 +22,12 @@ export function ExportModal({
   categories,
   onExportGeoJson,
   onShowNotification,
+  onOpenShareModal,
 }: ExportModalProps) {
   const [docTitle, setDocTitle] = useState(activeMapName || 'Plán trasy');
   const [docSubtitle, setDocSubtitle] = useState('Koordinační plán pro PČR, Městskou policii a složky IZS');
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
+  const [dpiQuality, setDpiQuality] = useState<'300' | '150'>('300');
   const [includeStats, setIncludeStats] = useState(true);
   const [includeLegend, setIncludeLegend] = useState(true);
   const [includeSignOff, setIncludeSignOff] = useState(true);
@@ -51,8 +54,9 @@ export function ExportModal({
         includeStats,
         includeLegend,
         includeSignOff,
+        scale: dpiQuality === '300' ? 2.8 : 1.5,
       });
-      onShowNotification(`PDF tisková mapa "${docTitle.trim() || activeMapName}" byla úspěšně stažena.`);
+      onShowNotification(`PDF tisková mapa "${docTitle.trim() || activeMapName}" (${dpiQuality} DPI) byla úspěšně stažena.`);
       onClose();
     } catch (err) {
       console.error('PDF export failed:', err);
@@ -186,6 +190,28 @@ export function ExportModal({
                 </div>
               </div>
 
+              <div className="export-option-group">
+                <label className="export-option-label">Tisková kvalita (DPI):</label>
+                <div className="orientation-toggle-group">
+                  <button
+                    type="button"
+                    className={`orientation-btn ${dpiQuality === '300' ? 'active' : ''}`}
+                    onClick={() => setDpiQuality('300')}
+                    title="Vysoké rozlišení s ostrými hranami pro tisk na A4/A3"
+                  >
+                    300 DPI (Tisk)
+                  </button>
+                  <button
+                    type="button"
+                    className={`orientation-btn ${dpiQuality === '150' ? 'active' : ''}`}
+                    onClick={() => setDpiQuality('150')}
+                    title="Standardní rozlišení"
+                  >
+                    150 DPI (Náhled)
+                  </button>
+                </div>
+              </div>
+
               <div className="export-checkboxes">
                 <label className="export-checkbox-label">
                   <input
@@ -311,6 +337,33 @@ export function ExportModal({
                 <span>Stáhnout GeoJSON (.geojson)</span>
               </button>
             </div>
+
+            {/* Mobile View & QR Code */}
+            {onOpenShareModal && (
+              <div className="export-card secondary-export-card">
+                <div className="export-card-header compact">
+                  <div className="export-card-icon-wrap qrcode">
+                    <QrCode size={18} />
+                  </div>
+                  <div className="export-card-info">
+                    <h4 className="export-card-title-sm">QR kód na mobil</h4>
+                    <p className="export-card-desc-sm">Interaktivní mapa v mobilu s živou GPS pro lidi v terénu.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-action secondary export-btn-sm"
+                  onClick={() => {
+                    onClose();
+                    onOpenShareModal();
+                  }}
+                  title="Otevřít zobrazení QR kódu a odkazu"
+                >
+                  <QrCode size={14} />
+                  <span>Zobrazit QR kód</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
