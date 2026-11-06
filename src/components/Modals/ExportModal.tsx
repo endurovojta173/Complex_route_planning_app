@@ -25,7 +25,6 @@ export function ExportModal({
   onOpenShareModal,
 }: ExportModalProps) {
   const [docTitle, setDocTitle] = useState(activeMapName || 'Plán trasy');
-  const [docSubtitle, setDocSubtitle] = useState('Koordinační plán pro PČR, Městskou policii a složky IZS');
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
   const [dpiQuality, setDpiQuality] = useState<'300' | '150'>('300');
   const [includeStats, setIncludeStats] = useState(true);
@@ -47,7 +46,6 @@ export function ExportModal({
       setIsExportingPdf(true);
       await exportMapToPdf(mapContainer, {
         title: docTitle.trim() || activeMapName || 'Plán trasy',
-        subtitle: docSubtitle.trim(),
         stats,
         categories,
         orientation,
@@ -153,20 +151,6 @@ export function ExportModal({
                   value={docTitle}
                   onChange={(e) => setDocTitle(e.target.value)}
                   placeholder="Např. Krojovaný průvod 2026 — Plán trasy"
-                />
-              </div>
-
-              <div className="export-option-group">
-                <label className="export-option-label" htmlFor="export-doc-subtitle">
-                  Podtitul (pro IZS, Policii ČR, pořadatele):
-                </label>
-                <input
-                  id="export-doc-subtitle"
-                  type="text"
-                  className="export-text-input"
-                  value={docSubtitle}
-                  onChange={(e) => setDocSubtitle(e.target.value)}
-                  placeholder="Např. Koordinační plán pro PČR, Městskou policii a složky IZS"
                 />
               </div>
 

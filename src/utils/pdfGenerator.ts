@@ -79,14 +79,13 @@ export async function createMapPdfBlob(
 
   // Layout geometry (points)
   const margin = 24;
-  const headerY = pageHeight - margin - 16;
-  const subHeaderY = headerY - 14;
+  const headerY = pageHeight - margin - 14;
 
-  let contentTop = subHeaderY - 16;
+  let contentTop = headerY - 10;
 
   // If stats included, reserve space for stats bar
   if (options.includeStats) {
-    contentTop -= 22;
+    contentTop -= 24;
   }
 
   // Reserve bottom space for legend / sign-off footer
@@ -120,37 +119,18 @@ export async function createMapPdfBlob(
     drawX = margin + (availWidth - drawW) / 2;
   }
 
-  // Date string
-  const dateStr = options.dateStr || new Date().toLocaleDateString('cs-CZ', {
-    day: 'numeric',
-    month: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-
   // Build PDF content stream
   let streamCmds = '';
 
   // Background page fill: clean white paper
   streamCmds += `q 1 1 1 rg 0 0 ${pageWidth} ${pageHeight} re f Q\n`;
 
-  // Header Bar: dark green header text & branding
-  // Title
-  streamCmds += `BT /F2 15 Tf 0.04 0.15 0.12 rg ${margin} ${headerY} Td (${toPdfAscii(options.title)}) Tj ET\n`;
-
-  // Branding & metadata top right
-  const brandingText = 'CRP - Complex Route Planning';
-  streamCmds += `BT /F2 9 Tf 0.25 0.35 0.32 rg ${pageWidth - margin - 160} ${headerY + 2} Td (${toPdfAscii(brandingText)}) Tj ET\n`;
-  streamCmds += `BT /F1 7.5 Tf 0.45 0.55 0.52 rg ${pageWidth - margin - 160} ${headerY - 9} Td (${toPdfAscii(`WGS84 • Vystup pro IZS a PCR`)}) Tj ET\n`;
-
-  // Subtitle / Date
-  const subtitleText = options.subtitle || `Plan trasy a koordinace logistiky • Datum: ${dateStr}`;
-  streamCmds += `BT /F1 8.5 Tf 0.35 0.45 0.42 rg ${margin} ${subHeaderY} Td (${toPdfAscii(subtitleText)}) Tj ET\n`;
+  // Header Bar: Clean Title only (no subtitles on left or right)
+  streamCmds += `BT /F2 16 Tf 0.04 0.15 0.12 rg ${margin} ${headerY} Td (${toPdfAscii(options.title)}) Tj ET\n`;
 
   // Statistics bar
   if (options.includeStats) {
-    const statsY = subHeaderY - 18;
+    const statsY = headerY - 16;
     // Light subtle background box for stats
     streamCmds += `q 0.94 0.96 0.95 rg ${margin} ${statsY - 4} ${availWidth} 18 re f Q\n`;
     streamCmds += `q 0.82 0.88 0.85 RG 0.5 w ${margin} ${statsY - 4} ${availWidth} 18 re S Q\n`;

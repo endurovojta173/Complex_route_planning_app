@@ -232,6 +232,186 @@ function getLayerRings(layer: any): L.LatLng[][] {
 }
 
 /**
+ * Draws rounded rectangle with fallback for browsers lacking ctx.roundRect
+ */
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+): void {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, w, h, r);
+  } else {
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+  }
+}
+
+/**
+ * Extracts point color from a Leaflet marker or GeoJSON feature
+ */
+function getMarkerColor(layer: any): string {
+  if (layer.feature?.properties?.color) return layer.feature.properties.color;
+  if (layer.options?.color) return layer.options.color;
+  const html = layer.options?.icon?.options?.html;
+  if (typeof html === 'string') {
+    const m = html.match(/background:\s*([^;"]+)/);
+    if (m && m[1]) return m[1].trim();
+  }
+  return '#f97316';
+}
+
+/**
+ * Extracts point name/label from a Leaflet marker or GeoJSON feature or tooltip
+ */
+function getMarkerLabel(layer: any): string {
+  if (layer.feature?.properties?.name) return String(layer.feature.properties.name).trim();
+  if (typeof layer.getTooltip === 'function') {
+    const tt = layer.getTooltip();
+    if (tt && typeof tt.getContent === 'function') {
+      const content = tt.getContent();
+      if (typeof content === 'string') return content.trim();
+    }
+  }
+  return '';
+}
+
+/**
+ * Draws a point marker (circle with ring & center dot) and its label pill
+ * onto the canvas with crisp vector rendering.
+ */
+function drawPointMarkerToCanvas(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  color: string,
+  label?: string
+): void {
+  ctx.save();
+
+  // 1. Drop shadow & outer colored circle
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 2;
+
+  ctx.beginPath();
+  ctx.arc(x, y, 10, 0, Math.PI * 2);
+  ctx.fillStyle = color || '#f97316';
+  ctx.fill();
+
+  // White border
+  ctx.shadowColor = 'transparent';
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  // 2. White center dot
+  ctx.beginPath();
+  ctx.arc(x, y, 3, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+
+  // 3. Label Badge (e.g. "Sraz ráno")
+  if (label && label.trim()) {
+    const text = label.trim();
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const textMetrics = ctx.measureText(text);
+    const textWidth = textMetrics.width;
+    const paddingX = 8;
+    const badgeH = 20;
+    const badgeW = textWidth + paddingX * 2;
+    const badgeX = x - badgeW / 2;
+    const badgeY = y - 14 - badgeH;
+
+    // Badge shadow & background pill
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = '#0f172a';
+
+    ctx.beginPath();
+    drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 5);
+    ctx.fill();
+
+    // Small triangle pointer pointing down to the marker
+    ctx.beginPath();
+    ctx.moveTo(x - 4, badgeY + badgeH);
+    ctx.lineTo(x + 4, badgeY + badgeH);
+    ctx.lineTo(x, badgeY + badgeH + 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Badge border
+    ctx.shadowColor = 'transparent';
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#334155';
+    ctx.beginPath();
+    drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 5);
+    ctx.stroke();
+
+    // Text inside badge
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, badgeY + badgeH / 2);
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Draws a tooltip badge directly onto the canvas
+ */
+function drawTooltipBadgeToCanvas(
+  ctx: CanvasRenderingContext2D,
+  tooltipEl: HTMLElement,
+  containerRect: DOMRect
+): void {
+  const tRect = tooltipEl.getBoundingClientRect();
+  const x = tRect.left - containerRect.left;
+  const y = tRect.top - containerRect.top;
+  const w = tRect.width;
+  const h = tRect.height;
+  const text = tooltipEl.textContent?.trim();
+  if (!text || w <= 0 || h <= 0) return;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 2;
+
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  drawRoundedRect(ctx, x, y, w, h, 6);
+  ctx.fill();
+
+  ctx.shadowColor = 'transparent';
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#334155';
+  ctx.beginPath();
+  drawRoundedRect(ctx, x, y, w, h, 6);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x + w / 2, y + h / 2);
+
+  ctx.restore();
+}
+
+/**
  * Draws a Leaflet vector path (Polyline, Polygon, Rectangle, CircleMarker) directly
  * onto the 2D canvas using the map's exact projection.
  */
@@ -491,11 +671,82 @@ export async function renderMapToCanvas(
     drawDirectionArrow(ctx, arrow.pos.x, arrow.pos.y, arrow.bearing, arrow.color, arrow.bidirectional);
   }
 
-  // 4. Draw other non-arrow markers (e.g. search pin, waypoints) from marker pane
+  // 4. Draw Point Markers added by user with exact coordinates and label pills
+  if (map && typeof map.latLngToContainerPoint === 'function') {
+    const markerLayersToDraw: any[] = [];
+    const seenMarkers = new Set<any>();
+
+    const collectMarkerLayer = (l: any) => {
+      if (!l || seenMarkers.has(l)) return;
+      if (l instanceof L.Marker || (typeof l.getLatLng === 'function' && typeof l.getLatLngs !== 'function')) {
+        seenMarkers.add(l);
+        markerLayersToDraw.push(l);
+      } else if (typeof l.eachLayer === 'function' && !(l instanceof L.Polyline)) {
+        l.eachLayer((child: any) => collectMarkerLayer(child));
+      }
+    };
+
+    const drawnItems: any = (mapContainer as any)._drawn_items;
+    if (drawnItems && typeof drawnItems.eachLayer === 'function') {
+      drawnItems.eachLayer(collectMarkerLayer);
+    }
+
+    if (typeof map.eachLayer === 'function') {
+      map.eachLayer((l: any) => {
+        if (!seenMarkers.has(l)) {
+          collectMarkerLayer(l);
+        }
+      });
+    }
+
+    const renderedPoints = new Set<string>();
+    for (const mLayer of markerLayersToDraw) {
+      if ((mLayer.options as any)?.arrowBearing !== undefined) continue;
+      if (mLayer.options?.className?.includes('gps-user-marker-container')) continue;
+
+      const latlng = mLayer.getLatLng();
+      if (!latlng) continue;
+      const pos = map.latLngToContainerPoint(latlng);
+      if (!pos) continue;
+
+      const color = getMarkerColor(mLayer);
+      const label = getMarkerLabel(mLayer);
+      const key = `${Math.round(pos.x)},${Math.round(pos.y)}`;
+      renderedPoints.add(key);
+
+      drawPointMarkerToCanvas(ctx, pos.x, pos.y, color, label);
+    }
+
+    // Also draw any tooltips from .leaflet-tooltip-pane not yet rendered
+    const tooltipElements = Array.from(
+      mapContainer.querySelectorAll<HTMLElement>('.leaflet-tooltip-pane .leaflet-tooltip')
+    );
+    for (const tt of tooltipElements) {
+      const text = tt.textContent?.trim();
+      if (!text) continue;
+      const tRect = tt.getBoundingClientRect();
+      const tx = tRect.left - rect.left;
+      const ty = tRect.top - rect.top;
+
+      let alreadyDrawn = false;
+      for (const key of renderedPoints) {
+        const [px, py] = key.split(',').map(Number);
+        if (Math.abs(px - (tx + tRect.width / 2)) < 30 && Math.abs(py - (ty + tRect.height + 14)) < 25) {
+          alreadyDrawn = true;
+          break;
+        }
+      }
+      if (!alreadyDrawn) {
+        drawTooltipBadgeToCanvas(ctx, tt, rect);
+      }
+    }
+  }
+
+  // 5. Draw other non-arrow markers (e.g. search pin, waypoints) from marker pane
   const markerPane = mapContainer.querySelector('.leaflet-marker-pane');
   if (markerPane) {
     const markerDivs = Array.from(markerPane.querySelectorAll<HTMLElement>('.leaflet-marker-icon'))
-      .filter((m) => !m.classList.contains('route-direction-arrow-icon'));
+      .filter((m) => !m.classList.contains('route-direction-arrow-icon') && !m.classList.contains('custom-colored-marker'));
 
     for (const marker of markerDivs) {
       const mRect = marker.getBoundingClientRect();
@@ -752,6 +1003,7 @@ export function exportMapToSvg(
   let routesSvg = '';
   if (map && typeof map.latLngToContainerPoint === 'function') {
     const layersToDraw: any[] = [];
+    const markerLayersToDraw: any[] = [];
     const seen = new Set<any>();
 
     const collectLayer = (l: any) => {
@@ -759,6 +1011,9 @@ export function exportMapToSvg(
       if (typeof l.getLatLngs === 'function' || typeof l.getRadius === 'function') {
         seen.add(l);
         layersToDraw.push(l);
+      } else if (l instanceof L.Marker || (typeof l.getLatLng === 'function' && typeof l.getLatLngs !== 'function')) {
+        seen.add(l);
+        markerLayersToDraw.push(l);
       } else if (typeof l.eachLayer === 'function' && !(l instanceof L.Polyline)) {
         l.eachLayer((child: any) => collectLayer(child));
       }
@@ -779,6 +1034,28 @@ export function exportMapToSvg(
 
     for (const l of layersToDraw) {
       routesSvg += `    ${layerToSvgPath(l, map)}\n`;
+    }
+
+    for (const mLayer of markerLayersToDraw) {
+      if ((mLayer.options as any)?.arrowBearing !== undefined) continue;
+      const latlng = mLayer.getLatLng();
+      if (!latlng) continue;
+      const pos = map.latLngToContainerPoint(latlng);
+      if (!pos) continue;
+
+      const color = getMarkerColor(mLayer);
+      const label = getMarkerLabel(mLayer);
+
+      routesSvg += `    <g class="route-point-marker" transform="translate(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})">
+      <circle cx="0" cy="0" r="10" fill="${color}" stroke="#ffffff" stroke-width="2.5" />
+      <circle cx="0" cy="0" r="3" fill="#ffffff" />
+      ${
+        label
+          ? `<rect x="-${(label.length * 4 + 8).toFixed(1)}" y="-34" width="${(label.length * 8 + 16).toFixed(1)}" height="20" rx="5" fill="#0f172a" stroke="#334155" stroke-width="1" />
+      <text x="0" y="-20" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold" font-family="sans-serif">${label}</text>`
+          : ''
+      }
+    </g>\n`;
     }
   }
 
